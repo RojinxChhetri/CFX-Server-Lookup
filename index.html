@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CFX Server Lookup</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="light-mode">
+    <div class="theme-toggle">
+        <button id="themeToggle" aria-label="Toggle theme">
+            <i class="fas fa-moon"></i>
+        </button>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>CFX Server Lookup</h1>
+            <p>Enter a CFX address to get server information</p>
+        </header>
+
+        <div class="search-container">
+            <div class="search-box">
+                <div class="input-wrapper">
+                    <input type="text" id="serverAddress" placeholder="Enter CFX address...">
+                    <button id="lookupBtn" class="gradient-btn">Lookup</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="loader" class="loader hidden">
+            <div class="spinner"></div>
+            <p>Fetching server information...</p>
+        </div>
+
+        <div id="error" class="error hidden"></div>
+
+        <div id="serverInfo" class="server-info hidden">
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-server"></i>
+                    <h2 id="serverName"></h2>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Server IP</div>
+                        <div id="serverIP" class="info-value"></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Players</div>
+                        <div id="players" class="info-value"></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">OneSync</div>
+                        <div id="onesync" class="info-value"></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Game Build</div>
+                        <div id="gamebuild" class="info-value"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <div>
+                        <h2>Location Info</h2>
+                        <p>Server geographical information</p>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Country</div>
+                        <div id="country" class="info-value"></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">City</div>
+                        <div id="city" class="info-value"></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">ISP</div>
+                        <div id="isp" class="info-value"></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Region</div>
+                        <div id="region" class="info-value"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Improved player list UI -->
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-users"></i>
+                    <h2>Active Players</h2>
+                </div>
+                
+                <div class="player-controls">
+                    <input type="text" id="playerSearch" placeholder="Search players...">
+                    <select id="playerSort">
+                        <option value="name">Sort by Name</option>
+                        <option value="id">Sort by ID</option>
+                        <option value="ping">Sort by Ping</option>
+                    </select>
+                </div>
+
+                <div id="playerList" class="player-list"></div>
+            </div>
+        </div>
+    </div>
+    <footer>
+        <p>Made with ❤️ by Rojin Chhetri</p>
+    </footer>
+    <script src="/script.js"></script>
+</body>
+</html>
