@@ -25,12 +25,12 @@ CFX IP Resolver is a simple web application that allows users to resolve CFX add
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/RojinxChhetri/CFX-IP-Resolver.git
+   git clone https://github.com/RojinxChhetri/CFX-Server-Lookup.git
    ```
 
 2. Navigate into the project directory:
    ```bash
-   cd CFX-IP-Resolver
+   cd CFX-Server-Lookup
    ```
 
 3. Open the `index.html` file in your web browser:
@@ -58,7 +58,7 @@ CFX IP Resolver is a simple web application that allows users to resolve CFX add
 The project has the following structure:
 
 ```
-CFX-IP-Resolver/
+CFX-Server-Lookup/
 ├── index.html         # Main HTML file
 ├── styles.css         # Stylesheet for the application
 └── script.js          # JavaScript file for handling logic
