@@ -1,3 +1,4 @@
+// Notification ko lagi
 class ToastManager {
     constructor() {
         this.container = document.createElement('div');
@@ -12,41 +13,38 @@ class ToastManager {
             <i class="fas ${this.getIconForType(type)}"></i>
             <span>${message}</span>
         `;
-        
+
         this.container.appendChild(toast);
-        
+
         setTimeout(() => {
             toast.style.opacity = '0';
             setTimeout(() => {
-                this.container.removeChild(toast);
+                if (this.container.contains(toast)) {
+                    this.container.removeChild(toast);
+                }
             }, 300);
         }, duration);
     }
 
     getIconForType(type) {
-        switch(type) {
-            case 'error': return 'fa-exclamation-circle';
-            case 'success': return 'fa-check-circle';
-            case 'warning': return 'fa-exclamation-triangle';
-            default: return 'fa-info-circle';
+        switch (type) {
+            case 'error':
+                return 'fa-exclamation-circle';
+            case 'success':
+                return 'fa-check-circle';
+            case 'warning':
+                return 'fa-exclamation-triangle';
+            default:
+                return 'fa-info-circle';
         }
     }
 }
 
+// Main class
 class CFXLookup {
     constructor() {
-        this.initializeElements();
-        this.initializeState();
-        this.initializeEventListeners();
         this.toastManager = new ToastManager();
-        this.setInitialTheme();
-    }
 
-    setInitialTheme() {
-        this.setTheme('dark');  // Always start with dark mode
-    }
-
-    initializeElements() {
         this.elements = {
             body: document.body,
             themeToggle: document.getElementById('themeToggle'),
@@ -54,7 +52,6 @@ class CFXLookup {
             lookupBtn: document.getElementById('lookupBtn'),
             loader: document.getElementById('loader'),
             error: document.getElementById('error'),
-            errorText: document.getElementById('errorText'),
             serverInfo: document.getElementById('serverInfo'),
             playerSearch: document.getElementById('playerSearch'),
             playerSort: document.getElementById('playerSort'),
@@ -67,40 +64,24 @@ class CFXLookup {
             city: document.getElementById('city'),
             isp: document.getElementById('isp'),
             region: document.getElementById('region'),
-            playerList: document.getElementById('playerList')
+            playerList: document.getElementById('playerList'),
         };
 
-        // Add copy button to server IP
-        const ipWrapper = document.createElement('div');
-        ipWrapper.style.display = 'flex';
-        ipWrapper.style.alignItems = 'center';
-        
-        const copyButton = document.createElement('button');
-        copyButton.className = 'copy-button';
-        copyButton.innerHTML = '<i class="fas fa-copy"></i>';
-        copyButton.onclick = () => this.copyToClipboard('serverIP');
-        
-        this.elements.serverIP.parentNode.appendChild(copyButton);
+        this.addCopyButtonToServerIP();
+
+        this.players = [];
+        this.searchQuery = '';
+        this.sortCriteria = 'name';
+        this.autoRefreshInterval = null;
+
+        this.setInitialTheme();
+        this.setupEventListeners();
     }
 
-    initializeState() {
-        this.currentServerData = null;
-        this.players = [];  // Store player data
-        this.isLoading = false;  // Track loading state
-        this.autoRefreshInterval = null; // For auto-refresh
+    setInitialTheme() {
+        this.setTheme('dark');
     }
 
-    initializeEventListeners() {
-        this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
-        this.elements.lookupBtn.addEventListener('click', () => this.handleLookup());
-        this.elements.serverAddress.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.handleLookup();
-        });
-        this.elements.playerSearch.addEventListener('input', () => this.filterPlayers());
-        this.elements.playerSort.addEventListener('change', () => this.sortPlayers());
-    }
-
-    // Theme Management
     setTheme(theme) {
         this.elements.body.classList.remove('light-mode', 'dark-mode');
         this.elements.body.classList.add(`${theme}-mode`);
@@ -119,7 +100,24 @@ class CFXLookup {
         icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
     }
 
-    // Server Lookup and Data Handling
+    setupEventListeners() {
+        this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+        this.elements.lookupBtn.addEventListener('click', () => this.handleLookup());
+        this.elements.serverAddress.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.handleLookup();
+        });
+
+        // Player search and sort
+        this.elements.playerSearch.addEventListener('input', () => {
+            this.searchQuery = this.elements.playerSearch.value.trim().toLowerCase();
+            this.updatePlayerList(); // Refresh list with new filter
+        });
+        this.elements.playerSort.addEventListener('change', () => {
+            this.sortCriteria = this.elements.playerSort.value;
+            this.updatePlayerList(); // Refresh list with new sort
+        });
+    }
+
     async handleLookup() {
         this.hideError();
         this.showLoader();
@@ -129,32 +127,30 @@ class CFXLookup {
         const serverCode = this.extractServerCode(input);
 
         if (!serverCode) {
-            this.toastManager.show('Invalid CFX address format', 'error');
+            this.toastManager.show('Invalid CFX address format.', 'error');
             this.hideLoader();
             return;
         }
 
         try {
-            // Check server status before fetching details
             const isOnline = await this.checkServerStatus(serverCode);
             if (!isOnline) {
-                this.toastManager.show('Server is currently offline', 'warning');
+                this.toastManager.show('Server is currently offline or not found.', 'warning');
                 this.hideLoader();
                 return;
             }
 
-            // Fetch server data
-            const serverResponse = await fetch(`https://servers-frontend.fivem.net/api/servers/single/${serverCode}`);
+            const serverResponse = await fetch(
+                `https://servers-frontend.fivem.net/api/servers/single/${serverCode}`
+            );
             const serverData = await serverResponse.json();
-
             if (!serverData.Data) {
-                throw new Error('Server not found or offline');
+                throw new Error('Server not found or offline.');
             }
 
             const data = serverData.Data;
             let ipAddress = '';
-
-            // Handle different server address formats
+            // Dherai janne manxey haru ko lagi
             if (input.includes('.users.cfx.re')) {
                 try {
                     const endpointResponse = await fetch(
@@ -162,9 +158,7 @@ class CFXLookup {
                         {
                             method: 'POST',
                             body: 'method=getEndpoints',
-                            headers: {
-                                'Content-Type': 'text/plain'
-                            }
+                            headers: { 'Content-Type': 'text/plain' },
                         }
                     );
                     const endpoints = await endpointResponse.json();
@@ -177,16 +171,14 @@ class CFXLookup {
             }
 
             this.updateServerInfo(data, ipAddress);
-            
-            // Start auto-refresh for player data
+
             this.startAutoRefresh(serverCode);
 
-            // Fetch and display server location info
             if (ipAddress && ipAddress !== 'Hidden') {
                 await this.fetchLocationInfo(ipAddress.split(':')[0]);
             }
 
-            this.toastManager.show('Server information retrieved successfully', 'success');
+            this.toastManager.show('Server information retrieved successfully!', 'success');
             this.elements.serverInfo.classList.remove('hidden');
         } catch (error) {
             this.toastManager.show(error.message, 'error');
@@ -199,110 +191,111 @@ class CFXLookup {
         try {
             const response = await fetch(`https://servers-frontend.fivem.net/api/servers/single/${serverCode}`);
             const data = await response.json();
-            return data.Data && data.Data.clients !== undefined;
-        } catch {
+            return data?.Data && data.Data?.clients !== undefined;
+        } catch (err) {
             return false;
         }
     }
 
-    // Fetch location info for IP address
-    async fetchLocationInfo(ip) {
-        try {
-            // Use ipapi.co which supports CORS
-            const locationResponse = await fetch(`https://ipapi.co/${ip}/json/`);
-            const locationData = await locationResponse.json();
-            
-            if (!locationData.error) {
-                this.elements.country.textContent = locationData.country_name || 'N/A';
-                this.elements.city.textContent = locationData.city || 'N/A';
-                this.elements.isp.textContent = locationData.org || 'N/A';
-                this.elements.region.textContent = locationData.asn || 'N/A';
-            } else {
-                throw new Error('Location data not available');
-            }
-        } catch (error) {
-            console.error('Location lookup error:', error);
-            this.toastManager.show('Location lookup failed. Using fallback method.', 'warning');
-            this.fetchLocationInfoFallback(ip);
+    extractServerCode(input) {
+        // 1) If it matches a direct cfx code, e.g. "abc123"
+        if (/^[a-zA-Z0-9]{6,}$/.test(input)) {
+            return input;
         }
+
+        // 2) If it's a link with cfx.re/join/xxxxx
+        const match = input.match(/(?:https?:\/\/)?cfx\.re\/join\/([a-zA-Z0-9]+)/);
+        return match ? match[1] : null;
+    }
+
+    startAutoRefresh(serverCode) {
+        // Clear any old intervals
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+        }
+
+        // Refresh player list every second
+        this.autoRefreshInterval = setInterval(async () => {
+            try {
+                const response = await fetch(
+                    `https://servers-frontend.fivem.net/api/servers/single/${serverCode}`
+                );
+                const data = await response.json();
+                if (data.Data && data.Data.players) {
+                    this.players = data.Data.players;
+                    this.updatePlayerList(); // re-render updated players
+                }
+            } catch (error) {
+                console.error('Error refreshing player data:', error);
+            }
+        }, 1000);
     }
 
     updateServerInfo(data, ipAddress) {
+        // Basic server info
         this.elements.serverName.textContent = this.cleanServerName(data.hostname);
         this.elements.serverIP.textContent = ipAddress;
         this.elements.players.textContent = `${data.clients}/${data.sv_maxclients}`;
         this.elements.onesync.textContent = data.vars.onesync_enabled === 'true' ? 'Enabled' : 'Disabled';
         this.elements.gamebuild.textContent = data.vars.sv_enforceGameBuild || 'N/A';
 
-        if (data.players) {
-            this.players = data.players;
-            this.updatePlayerList(data.players);
-        }
+        // Update player data in memory, then render them
+        this.players = data.players || [];
+        this.searchQuery = ''; // reset search on fresh load
+        this.elements.playerSearch.value = '';
+        this.sortCriteria = 'name';
+        this.elements.playerSort.value = 'name';
+        this.updatePlayerList();
     }
 
     cleanServerName(name) {
+        // Remove any color codes like ^1, ^2 etc.
         return name.replace(/\^[0-9]/g, '').trim();
     }
 
-    // Clipboard copy
-    async copyToClipboard(elementId) {
-        const text = document.getElementById(elementId).textContent;
+
+    // Thau ko name haru ko location fetch garna
+    async fetchLocationInfo(ip) {
         try {
-            await navigator.clipboard.writeText(text);
-            this.toastManager.show('Copied to clipboard!', 'success');
-        } catch (err) {
-            this.toastManager.show('Failed to copy text', 'error');
+            const locationResponse = await fetch(`https://ipapi.co/${ip}/json/`);
+            const locationData = await locationResponse.json();
+            if (locationData.error) {
+                throw new Error('Location data not available.');
+            }
+
+            // Update location fields
+            this.elements.country.textContent = locationData.country_name || 'N/A';
+            this.elements.city.textContent = locationData.city || 'N/A';
+            this.elements.isp.textContent = locationData.org || 'N/A';
+            // ipapi.co often stores the region name in "region", 
+            // region_code in "region_code" etc. 
+            this.elements.region.textContent = locationData.region || 'N/A';
+        } catch (error) {
+            console.warn('Location lookup error:', error);
+            this.toastManager.show('Location lookup failed.', 'warning');
+            // If you have fallback logic, you can call it here.
         }
     }
 
-    // Loader and error handling
-    showLoader() {
-        this.isLoading = true;
-        this.elements.loader.classList.remove('hidden');
-    }
-
-    hideLoader() {
-        this.isLoading = false;
-        this.elements.loader.classList.add('hidden');
-    }
-
-    showError(message) {
-        this.elements.errorText.textContent = message;
-        this.elements.error.classList.remove('hidden');
-        this.elements.serverInfo.classList.add('hidden');
-    }
-
-    hideError() {
-        this.elements.error.classList.add('hidden');
-    }
-
-    // Player list manipulation
-    filterPlayers() {
-        const query = this.elements.playerSearch.value.trim().toLowerCase();
-        const filteredPlayers = this.players.filter(player => 
-            player.name.toLowerCase().includes(query)
+    
+    updatePlayerList() {
+        // 1) Filter
+        let filtered = this.players.filter((p) =>
+            p.name.toLowerCase().includes(this.searchQuery)
         );
-        this.updatePlayerList(filteredPlayers);
-    }
 
-    sortPlayers() {
-        const criteria = this.elements.playerSort.value;
-        let sortedPlayers = [...this.players];
-
-        if (criteria === 'name') {
-            sortedPlayers.sort((a, b) => a.name.localeCompare(b.name));
-        } else if (criteria === 'id') {
-            sortedPlayers.sort((a, b) => a.id - b.id);
-        } else if (criteria === 'ping') {
-            sortedPlayers.sort((a, b) => a.ping - b.ping);
+        // 2) Sort
+        if (this.sortCriteria === 'name') {
+            filtered.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (this.sortCriteria === 'id') {
+            filtered.sort((a, b) => a.id - b.id);
+        } else if (this.sortCriteria === 'ping') {
+            filtered.sort((a, b) => a.ping - b.ping);
         }
 
-        this.updatePlayerList(sortedPlayers);
-    }
-
-    updatePlayerList(players) {
-        this.elements.playerList.innerHTML = '';  // Clear the existing list
-        players.forEach(player => {
+        // 3) Render
+        this.elements.playerList.innerHTML = '';
+        filtered.forEach((player) => {
             const playerItem = document.createElement('div');
             playerItem.className = 'player-item';
             playerItem.innerHTML = `
@@ -327,35 +320,40 @@ class CFXLookup {
         return div.innerHTML;
     }
 
-    // Start auto-refresh for player data every second
-    startAutoRefresh(serverCode) {
-        if (this.autoRefreshInterval) {
-            clearInterval(this.autoRefreshInterval); // Clear any existing interval
-        }
-        this.autoRefreshInterval = setInterval(async () => {
-            try {
-                const serverResponse = await fetch(`https://servers-frontend.fivem.net/api/servers/single/${serverCode}`);
-                const serverData = await serverResponse.json();
+    addCopyButtonToServerIP() {
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.innerHTML = '<i class="fas fa-copy"></i>';
+        copyButton.onclick = () => this.copyToClipboard('serverIP');
 
-                if (serverData.Data) {
-                    const data = serverData.Data;
-                    if (data.players) {
-                        this.players = data.players;
-                        this.updatePlayerList(data.players); // Update the player list with fresh data
-                    }
-                }
-            } catch (error) {
-                console.error('Error refreshing player data:', error);
-            }
-        }, 1000); // Refresh every second
+        const parent = this.elements.serverIP.parentNode;
+        parent.style.display = 'flex';
+        parent.style.alignItems = 'center';
+        parent.appendChild(copyButton);
     }
 
-    // Helper method to extract server code from input
-    extractServerCode(input) {
-        const match = input.match(/cfx\.re\/join\/([a-zA-Z0-9]+)/);
-        return match ? match[1] : null;
+    async copyToClipboard(elementId) {
+        const text = document.getElementById(elementId).textContent;
+        try {
+            await navigator.clipboard.writeText(text);
+            this.toastManager.show('Copied to clipboard!', 'success');
+        } catch (err) {
+            this.toastManager.show('Failed to copy text.', 'error');
+        }
+    }
+
+    showLoader() {
+        this.elements.loader.classList.remove('hidden');
+    }
+
+    hideLoader() {
+        this.elements.loader.classList.add('hidden');
+    }
+
+    hideError() {
+        this.elements.error.classList.add('hidden');
     }
 }
 
-// Initialize the app when DOM is fully loaded
+    // Suru choti call garna
 document.addEventListener('DOMContentLoaded', () => new CFXLookup());
