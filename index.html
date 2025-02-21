@@ -1,15 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+        name="description"
+        content="Resolve CFX addresses to server details including IP, player list, location, and PDF exports."
+    />
+    <meta property="og:title" content="CFX Server Lookup" />
+    <meta
+        property="og:description"
+        content="A tool to look up FiveM server details from CFX addresses."
+    />
+    <meta property="og:url" content="https://cfx.rojinchhetri.com" />
     <title>CFX Server Lookup</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css" />
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <!-- jsPDF library with correct integrity -->
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"
+    ></script>
 </head>
 <body class="light-mode">
     <div class="theme-toggle">
-        <button id="themeToggle" aria-label="Toggle theme">
+        <button
+            id="themeToggle"
+            aria-label="Toggle between light and dark theme"
+            title="Toggle theme"
+        >
             <i class="fas fa-moon"></i>
         </button>
     </div>
@@ -23,7 +47,12 @@
         <div class="search-container">
             <div class="search-box">
                 <div class="input-wrapper">
-                    <input type="text" id="serverAddress" placeholder="Enter CFX address...">
+                    <input
+                        type="text"
+                        id="serverAddress"
+                        placeholder="e.g., abc123 or https://cfx.re/join/abc123"
+                        aria-label="Enter CFX address"
+                    />
                     <button id="lookupBtn" class="gradient-btn">Lookup</button>
                 </div>
             </div>
@@ -42,7 +71,6 @@
                     <i class="fas fa-server"></i>
                     <h2 id="serverName"></h2>
                 </div>
-
                 <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Server IP</div>
@@ -71,7 +99,6 @@
                         <p>Server geographical information</p>
                     </div>
                 </div>
-
                 <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Country</div>
@@ -92,29 +119,36 @@
                 </div>
             </div>
 
-            <!-- Improved player list UI -->
             <div class="info-card">
                 <div class="card-header">
                     <i class="fas fa-users"></i>
                     <h2>Active Players</h2>
                 </div>
-                
                 <div class="player-controls">
-                    <input type="text" id="playerSearch" placeholder="Search players...">
-                    <select id="playerSort">
+                    <input
+                        type="text"
+                        id="playerSearch"
+                        placeholder="Search players..."
+                        aria-label="Search players by name"
+                    />
+                    <select id="playerSort" aria-label="Sort player list">
                         <option value="name">Sort by Name</option>
                         <option value="id">Sort by ID</option>
                         <option value="ping">Sort by Ping</option>
                     </select>
                 </div>
-
                 <div id="playerList" class="player-list"></div>
             </div>
+
+            <button id="downloadPDFBtn" class="gradient-btn">
+                Download PDF
+            </button>
         </div>
     </div>
+
     <footer>
         <p>Made with ❤️ by Rojin Chhetri</p>
     </footer>
-    <script src="/script.js"></script>
+    <script src="./script.js"></script>
 </body>
 </html>
