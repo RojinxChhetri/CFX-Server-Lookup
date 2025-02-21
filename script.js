@@ -1,4 +1,4 @@
-// Notification ko lagi
+// Manages toast notifications for user feedback
 class ToastManager {
     constructor() {
         this.container = document.createElement('div');
@@ -6,6 +6,7 @@ class ToastManager {
         document.body.appendChild(this.container);
     }
 
+    // Displays a toast with message, type, and duration
     show(message, type = 'error', duration = 5000) {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
@@ -13,19 +14,14 @@ class ToastManager {
             <i class="fas ${this.getIconForType(type)}"></i>
             <span>${message}</span>
         `;
-
         this.container.appendChild(toast);
-
         setTimeout(() => {
             toast.style.opacity = '0';
-            setTimeout(() => {
-                if (this.container.contains(toast)) {
-                    this.container.removeChild(toast);
-                }
-            }, 300);
+            setTimeout(() => this.container.removeChild(toast), 300);
         }, duration);
     }
 
+    // Returns appropriate icon based on toast type
     getIconForType(type) {
         switch (type) {
             case 'error':
@@ -40,11 +36,15 @@ class ToastManager {
     }
 }
 
-// Main class
+// Main class handling all CFX lookup functionality
 class CFXLookup {
     constructor() {
         this.toastManager = new ToastManager();
+        this.isLookingUp = false;
+        this.lookupCount = 0;
+        this.lastLookupTime = 0;
 
+        // DOM elements
         this.elements = {
             body: document.body,
             themeToggle: document.getElementById('themeToggle'),
@@ -65,23 +65,25 @@ class CFXLookup {
             isp: document.getElementById('isp'),
             region: document.getElementById('region'),
             playerList: document.getElementById('playerList'),
+            downloadPDFBtn: document.getElementById('downloadPDFBtn'),
         };
 
         this.addCopyButtonToServerIP();
-
         this.players = [];
         this.searchQuery = '';
         this.sortCriteria = 'name';
-        this.autoRefreshInterval = null;
 
         this.setInitialTheme();
         this.setupEventListeners();
     }
 
+    // Sets initial theme based on saved preference or defaults to dark
     setInitialTheme() {
-        this.setTheme('dark');
+        const savedTheme = localStorage.getItem('cfx-lookup-theme') || 'dark';
+        this.setTheme(savedTheme);
     }
 
+    // Applies the specified theme to the body and saves it
     setTheme(theme) {
         this.elements.body.classList.remove('light-mode', 'dark-mode');
         this.elements.body.classList.add(`${theme}-mode`);
@@ -89,36 +91,60 @@ class CFXLookup {
         localStorage.setItem('cfx-lookup-theme', theme);
     }
 
+    // Toggles between light and dark themes
     toggleTheme() {
-        const currentTheme = this.elements.body.classList.contains('light-mode') ? 'light' : 'dark';
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        this.setTheme(newTheme);
+        const currentTheme = this.elements.body.classList.contains('light-mode')
+            ? 'light'
+            : 'dark';
+        this.setTheme(currentTheme === 'light' ? 'dark' : 'light');
     }
 
+    // Updates the theme toggle icon
     updateThemeIcon(theme) {
         const icon = this.elements.themeToggle.querySelector('i');
         icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
     }
 
+    // Sets up all event listeners
     setupEventListeners() {
         this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
         this.elements.lookupBtn.addEventListener('click', () => this.handleLookup());
         this.elements.serverAddress.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleLookup();
         });
-
-        // Player search and sort
         this.elements.playerSearch.addEventListener('input', () => {
             this.searchQuery = this.elements.playerSearch.value.trim().toLowerCase();
-            this.updatePlayerList(); // Refresh list with new filter
+            this.updatePlayerList();
         });
         this.elements.playerSort.addEventListener('change', () => {
             this.sortCriteria = this.elements.playerSort.value;
-            this.updatePlayerList(); // Refresh list with new sort
+            this.updatePlayerList();
         });
+        this.elements.downloadPDFBtn.addEventListener('click', () => this.downloadPDF());
     }
 
+    // Handles the server lookup process with simple throttling
     async handleLookup() {
+        const now = Date.now();
+        if (now - this.lastLookupTime < 5000) {
+            this.toastManager.show(
+                'Please wait a moment before performing another lookup.',
+                'warning'
+            );
+            return;
+        }
+        this.lastLookupTime = now;
+        this.lookupCount++;
+
+        if (this.isLookingUp) {
+            this.toastManager.show(
+                'Please wait for the current lookup to finish.',
+                'warning'
+            );
+            return;
+        }
+
+        this.isLookingUp = true;
         this.hideError();
         this.showLoader();
         this.elements.serverInfo.classList.add('hidden');
@@ -127,15 +153,19 @@ class CFXLookup {
         const serverCode = this.extractServerCode(input);
 
         if (!serverCode) {
-            this.toastManager.show('Invalid CFX address format.', 'error');
+            this.toastManager.show(
+                'Invalid CFX address format. Use e.g., "abc123" or "https://cfx.re/join/abc123".',
+                'error'
+            );
             this.hideLoader();
+            this.isLookingUp = false;
             return;
         }
 
         try {
             const isOnline = await this.checkServerStatus(serverCode);
             if (!isOnline) {
-                this.toastManager.show('Server is currently offline or not found.', 'warning');
+                this.toastManager.show('Server is offline or not found.', 'warning');
                 this.hideLoader();
                 return;
             }
@@ -144,13 +174,11 @@ class CFXLookup {
                 `https://servers-frontend.fivem.net/api/servers/single/${serverCode}`
             );
             const serverData = await serverResponse.json();
-            if (!serverData.Data) {
-                throw new Error('Server not found or offline.');
-            }
+            if (!serverData.Data) throw new Error('Server data unavailable.');
 
             const data = serverData.Data;
-            let ipAddress = '';
-            // Dherai janne manxey haru ko lagi
+            let ipAddress = data.connectEndPoints[0] || 'Hidden';
+
             if (input.includes('.users.cfx.re')) {
                 try {
                     const endpointResponse = await fetch(
@@ -162,186 +190,281 @@ class CFXLookup {
                         }
                     );
                     const endpoints = await endpointResponse.json();
-                    ipAddress = endpoints[0];
+                    ipAddress = endpoints[0] || ipAddress;
                 } catch (error) {
-                    ipAddress = data.connectEndPoints[0] || 'Hidden';
+                    console.warn('Failed to fetch endpoints:', error);
                 }
-            } else {
-                ipAddress = data.connectEndPoints[0] || 'Hidden';
             }
 
             this.updateServerInfo(data, ipAddress);
 
-            this.startAutoRefresh(serverCode);
-
-            if (ipAddress && ipAddress !== 'Hidden') {
+            if (ipAddress !== 'Hidden') {
                 await this.fetchLocationInfo(ipAddress.split(':')[0]);
             }
 
             this.toastManager.show('Server information retrieved successfully!', 'success');
             this.elements.serverInfo.classList.remove('hidden');
         } catch (error) {
-            this.toastManager.show(error.message, 'error');
+            this.toastManager.show(`Error: ${error.message}`, 'error');
         } finally {
             this.hideLoader();
+            this.isLookingUp = false;
         }
     }
 
+    // Checks if the server is online
     async checkServerStatus(serverCode) {
         try {
-            const response = await fetch(`https://servers-frontend.fivem.net/api/servers/single/${serverCode}`);
+            const response = await fetch(
+                `https://servers-frontend.fivem.net/api/servers/single/${serverCode}`
+            );
             const data = await response.json();
-            return data?.Data && data.Data?.clients !== undefined;
-        } catch (err) {
+            return data?.Data?.clients !== undefined;
+        } catch (error) {
             return false;
         }
     }
 
+    // Extracts server code from input (direct code or URL)
     extractServerCode(input) {
-        // 1) If it matches a direct cfx code, e.g. "abc123"
-        if (/^[a-zA-Z0-9]{6,}$/.test(input)) {
-            return input;
-        }
-
-        // 2) If it's a link with cfx.re/join/xxxxx
+        if (/^[a-zA-Z0-9]{6,}$/.test(input)) return input;
         const match = input.match(/(?:https?:\/\/)?cfx\.re\/join\/([a-zA-Z0-9]+)/);
         return match ? match[1] : null;
     }
 
-    startAutoRefresh(serverCode) {
-        // Clear any old intervals
-        if (this.autoRefreshInterval) {
-            clearInterval(this.autoRefreshInterval);
-        }
-
-        // Refresh player list every second
-        this.autoRefreshInterval = setInterval(async () => {
-            try {
-                const response = await fetch(
-                    `https://servers-frontend.fivem.net/api/servers/single/${serverCode}`
-                );
-                const data = await response.json();
-                if (data.Data && data.Data.players) {
-                    this.players = data.Data.players;
-                    this.updatePlayerList(); // re-render updated players
-                }
-            } catch (error) {
-                console.error('Error refreshing player data:', error);
-            }
-        }, 1000);
-    }
-
+    // Updates server info UI
     updateServerInfo(data, ipAddress) {
-        // Basic server info
         this.elements.serverName.textContent = this.cleanServerName(data.hostname);
         this.elements.serverIP.textContent = ipAddress;
         this.elements.players.textContent = `${data.clients}/${data.sv_maxclients}`;
-        this.elements.onesync.textContent = data.vars.onesync_enabled === 'true' ? 'Enabled' : 'Disabled';
+        this.elements.onesync.textContent =
+            data.vars.onesync_enabled === 'true' ? 'Enabled' : 'Disabled';
         this.elements.gamebuild.textContent = data.vars.sv_enforceGameBuild || 'N/A';
 
-        // Update player data in memory, then render them
         this.players = data.players || [];
-        this.searchQuery = ''; // reset search on fresh load
+        this.searchQuery = '';
         this.elements.playerSearch.value = '';
         this.sortCriteria = 'name';
         this.elements.playerSort.value = 'name';
         this.updatePlayerList();
     }
 
+    // Removes color codes from server name
     cleanServerName(name) {
-        // Remove any color codes like ^1, ^2 etc.
         return name.replace(/\^[0-9]/g, '').trim();
     }
 
-
-    // Thau ko name haru ko location fetch garna
+    // Fetches and updates location info based on IP
     async fetchLocationInfo(ip) {
         try {
-            const locationResponse = await fetch(`https://ipapi.co/${ip}/json/`);
-            const locationData = await locationResponse.json();
-            if (locationData.error) {
-                throw new Error('Location data not available.');
-            }
-
-            // Update location fields
-            this.elements.country.textContent = locationData.country_name || 'N/A';
-            this.elements.city.textContent = locationData.city || 'N/A';
-            this.elements.isp.textContent = locationData.org || 'N/A';
-            // ipapi.co often stores the region name in "region", 
-            // region_code in "region_code" etc. 
-            this.elements.region.textContent = locationData.region || 'N/A';
+            const response = await fetch(`https://ipapi.co/${ip}/json/`);
+            const data = await response.json();
+            if (data.error) throw new Error(data.reason);
+            this.elements.country.textContent = data.country_name || 'N/A';
+            this.elements.city.textContent = data.city || 'N/A';
+            this.elements.isp.textContent = data.org || 'N/A';
+            this.elements.region.textContent = data.region || 'N/A';
         } catch (error) {
-            console.warn('Location lookup error:', error);
             this.toastManager.show('Location lookup failed.', 'warning');
-            // If you have fallback logic, you can call it here.
         }
     }
 
-    
+    // Updates the player list with filtering and sorting
     updatePlayerList() {
-        // 1) Filter
         let filtered = this.players.filter((p) =>
             p.name.toLowerCase().includes(this.searchQuery)
         );
 
-        // 2) Sort
-        if (this.sortCriteria === 'name') {
-            filtered.sort((a, b) => a.name.localeCompare(b.name));
-        } else if (this.sortCriteria === 'id') {
-            filtered.sort((a, b) => a.id - b.id);
-        } else if (this.sortCriteria === 'ping') {
-            filtered.sort((a, b) => a.ping - b.ping);
+        switch (this.sortCriteria) {
+            case 'name':
+                filtered.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            case 'id':
+                filtered.sort((a, b) => a.id - b.id);
+                break;
+            case 'ping':
+                filtered.sort((a, b) => a.ping - b.ping);
+                break;
         }
 
-        // 3) Render
         this.elements.playerList.innerHTML = '';
-        filtered.forEach((player) => {
-            const playerItem = document.createElement('div');
-            playerItem.className = 'player-item';
-            playerItem.innerHTML = `
-                <div class="player-info">
-                    <span class="player-name">${this.escapeHtml(player.name)}</span>
-                    <span class="player-id">#${player.id}</span>
-                </div>
-                <div class="player-stats">
-                    <div class="stat">
-                        <div class="stat-label">Ping</div>
-                        <div class="stat-value">${player.ping}ms</div>
+        if (filtered.length === 0) {
+            const noPlayers = document.createElement('div');
+            noPlayers.className = 'no-players';
+            noPlayers.textContent = 'No players found';
+            this.elements.playerList.appendChild(noPlayers);
+        } else {
+            filtered.forEach((player) => {
+                const playerItem = document.createElement('div');
+                playerItem.className = 'player-item';
+                playerItem.innerHTML = `
+                    <div class="player-info">
+                        <span class="player-name">${this.escapeHtml(player.name)}</span>
+                        <span class="player-id">#${player.id}</span>
                     </div>
-                </div>
-            `;
-            this.elements.playerList.appendChild(playerItem);
-        });
+                    <div class="player-stats">
+                        <div class="stat">
+                            <div class="stat-label">Ping</div>
+                            <div class="stat-value">${player.ping}ms</div>
+                        </div>
+                    </div>
+                `;
+                this.elements.playerList.appendChild(playerItem);
+            });
+        }
     }
 
+    // Escapes HTML to prevent XSS
     escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
     }
 
+    // Adds a copy button to the server IP field
     addCopyButtonToServerIP() {
         const copyButton = document.createElement('button');
         copyButton.className = 'copy-button';
         copyButton.innerHTML = '<i class="fas fa-copy"></i>';
+        copyButton.title = 'Copy server IP';
+        copyButton.setAttribute('aria-label', 'Copy server IP');
         copyButton.onclick = () => this.copyToClipboard('serverIP');
-
         const parent = this.elements.serverIP.parentNode;
         parent.style.display = 'flex';
         parent.style.alignItems = 'center';
         parent.appendChild(copyButton);
     }
 
+    // Copies text to clipboard
     async copyToClipboard(elementId) {
-        const text = document.getElementById(elementId).textContent;
         try {
+            const text = document.getElementById(elementId).textContent;
             await navigator.clipboard.writeText(text);
             this.toastManager.show('Copied to clipboard!', 'success');
-        } catch (err) {
+        } catch (error) {
             this.toastManager.show('Failed to copy text.', 'error');
         }
     }
 
+    // Creates a PDF with enhanced server details and player list
+    downloadPDF() {
+        // Check if server info is available
+        if (
+            !this.elements.serverName.textContent.trim() ||
+            !this.elements.serverIP.textContent.trim()
+        ) {
+            this.toastManager.show('No server information to generate PDF.', 'warning');
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            this.toastManager.show('jsPDF library not loaded properly.', 'error');
+            return;
+        }
+
+        const doc = new jsPDF({
+            orientation: 'p',
+            unit: 'pt',
+            format: 'letter',
+        });
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 40;
+
+        // Title: "Server Information" (centered, bold)
+        const title = 'Server Information';
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        const titleWidth = doc.getTextDimensions(title).w;
+        const xTitle = (pageWidth - titleWidth) / 2;
+        doc.text(title, xTitle, 50);
+
+        // Generated on: Date and Time (left-aligned)
+        const generatedOn = `Generated on: ${new Date().toLocaleString()}`;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(generatedOn, margin, 70);
+
+        // Server Details section (centered and bold)
+        const serverDetailsTitle = 'Server Details';
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        const serverDetailsWidth = doc.getTextDimensions(serverDetailsTitle).w;
+        const xServerDetails = (pageWidth - serverDetailsWidth) / 2;
+        doc.text(serverDetailsTitle, xServerDetails, 90);
+
+        let y = 110;
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        const details = [
+            `Name: ${this.elements.serverName.textContent}`,
+            `IP: ${this.elements.serverIP.textContent}`,
+            `Players: ${this.elements.players.textContent}`,
+            `OneSync: ${this.elements.onesync.textContent}`,
+            `Game Build: ${this.elements.gamebuild.textContent}`,
+        ];
+        details.forEach((line) => {
+            const textWidth = doc.getTextDimensions(line).w;
+            const xCentered = (pageWidth - textWidth) / 2;
+            doc.text(line, xCentered, y);
+            y += 15;
+        });
+
+        // Location Info section (left-aligned)
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text('Location Info', margin, y + 10);
+        y += 30;
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Country: ${this.elements.country.textContent}`, margin, y);
+        y += 15;
+        doc.text(`City: ${this.elements.city.textContent}`, margin, y);
+        y += 15;
+        doc.text(`ISP: ${this.elements.isp.textContent}`, margin, y);
+        y += 15;
+        doc.text(`Region: ${this.elements.region.textContent}`, margin, y);
+        y += 20;
+
+        // Active Players section (left-aligned)
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text('Active Players', margin, y);
+        y += 15;
+
+        // Player list header (bold)
+        doc.setFont(undefined, 'bold');
+        doc.text('ID', margin, y);
+        doc.text('Name', margin + 60, y);
+        doc.text('Ping', margin + 360, y);
+        y += 15;
+
+        // Player list (normal font with proper spacing)
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'normal');
+        if (!this.players || this.players.length === 0) {
+            doc.text('No players available.', margin, y);
+        } else {
+            this.players.forEach((p) => {
+                if (y > 700) {
+                    doc.addPage();
+                    y = 40;
+                }
+                doc.text(p.id.toString(), margin, y);
+                doc.text(p.name, margin + 60, y);
+                doc.text(`${p.ping}ms`, margin + 360, y);
+                y += 20; // Increased spacing for readability
+            });
+        }
+
+        // Save the PDF
+        const sanitizedName = this.elements.serverName.textContent.replace(/\s+/g, '_');
+        doc.save(`server_${sanitizedName}.pdf`);
+        this.toastManager.show('PDF generated successfully!', 'success');
+    }
+
+    // Utility methods
     showLoader() {
         this.elements.loader.classList.remove('hidden');
     }
@@ -355,5 +478,5 @@ class CFXLookup {
     }
 }
 
-    // Suru choti call garna
+// Initialize the CFX Lookup tool on page load
 document.addEventListener('DOMContentLoaded', () => new CFXLookup());
