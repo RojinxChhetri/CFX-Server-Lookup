@@ -236,7 +236,11 @@ class CFXLookup {
     updateServerInfo(data, ipAddress) {
         this.elements.serverName.textContent = this.cleanServerName(data.hostname);
         this.elements.serverIP.textContent = ipAddress;
-        this.elements.players.textContent = `${data.clients}/${data.sv_maxclients}`;
+        const maxClients =
+            data.sv_maxclients ||
+            (data.vars ? data.vars.sv_maxclients || data.vars.sv_maxClients : null) ||
+            'N/A';
+        this.elements.players.textContent = `${data.clients}/${maxClients}`;
         this.elements.onesync.textContent =
             data.vars.onesync_enabled === 'true' ? 'Enabled' : 'Disabled';
         this.elements.gamebuild.textContent = data.vars.sv_enforceGameBuild || 'N/A';

@@ -60,12 +60,12 @@ The project has the following structure:
 ```
 CFX-Server-Lookup/
 ├── index.html         # Main HTML file
-├── styles.css         # Stylesheet for the application
+├── style.css          # Stylesheet for the application
 └── script.js          # JavaScript file for handling logic
 ```
 
 - **index.html**: Contains the main structure and content of the web application.
-- **styles.css**: Includes styles to enhance the appearance of the application.
+- **style.css**: Includes styles to enhance the appearance of the application.
 - **script.js**: Contains JavaScript code that handles the logic for resolving CFX addresses.
 
 ## Contributing
